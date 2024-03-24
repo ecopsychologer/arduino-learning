@@ -34,7 +34,8 @@ void loop() {
 
     // Calculate the running average
     total = total - readings[readingsIndex];
-    readings[readingsIndex] = convertToDecibels(analogRead(micPin));
+    int rawValue = 1023 - analogRead(micPin); // Inverts the reading
+    readings[readingsIndex] = convertToDecibels(rawValue);
     total = total + readings[readingsIndex];
     readingsIndex = (readingsIndex + 1) % numReadings;
     runningAverage = total / numReadings;
