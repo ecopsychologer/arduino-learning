@@ -13,10 +13,26 @@
 #include <Adafruit_HMC5883_U.h> // compass
 #include <SoftwareSerial.h> // for gps
 #include <TinyGPS.h> // by Mikal Hart
+#include "AnalogUVSensor.h"
+#include <string.h>
 
 #define I2C_ADDRESS 0x76
-#define GPS_RX 3
-#define GPS_TX 4
+#define GPS_RX 4
+#define GPS_TX 3
+
+// deal with OLED screens
+enum ScreenState {
+  SCREEN0, // Lat, Lon, No. Sats, Precision, Temp, Pressure
+  SCREEN1,
+  SCREEN_COUNT // Always last, used to know the count of screens
+};
+
+ScreenState currentScreen = SCREEN0;
+unsigned long lastButtonPress = 0;
+const int pagePin = 6;
+
+// UV Sensor
+AnalogUVSensor AUV;
 
 // GPS Serial Connection
 TinyGPS gps;
@@ -24,6 +40,7 @@ SoftwareSerial ss(GPS_TX, GPS_RX);
 
 // OLED Setup
 GyverOLED<SSD1306_128x32, OLED_NO_BUFFER> oled;
+bool screen = true;
 
 //create a BMx280I2C object using the I2C interface with I2C Address 0x76
 BMx280I2C bmx280(I2C_ADDRESS);
@@ -36,9 +53,15 @@ void setup() {
 	while (!Serial);
 	Wire.begin();
 
+  /* UV Sensor */
+  AUV.begin(A0, 5.0, 1023);     // connect sensor to A0
+  AUV.setPowerPin(5);           //  connect power of sensor to digital pin 5
+  AUV.switchOff();              // turn off the sensor for now
+
   /* OLED Code */
   oled.init();
   oled.clear();
+  pinMode(pagePin, INPUT_PULLUP);
 
   /* BMP280 Code */
 	//begin() checks the Interface, reads the sensor ID (to differentiate between BMP280 and BME280)
@@ -59,28 +82,49 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  get_gps();
-  bmp280();
+  //get_gps();
+  //bmp280();
+  oled.clear();
+  oled.setCursor(0, 0);
+  oled.print(get_uv());
   oled.update();
+  delay(1000);
 }
 
+String get_uv() {
+  AUV.switchOn();
+  float uvi = AUV.read(10);       //  10 readings averaged
+  AUV.switchOff();
+  String uv_data = "";
+  // Serial Print
+  Serial.print("UV Index: ");
+  Serial.println(uvi, 1);
+
+  // Response Forming
+  uv_data.concat("UV Index: ");
+  uv_data.concat(String(uvi));
+  return uv_data;
+}
+
+
+
 void get_gps() {
-  // For one second we parse GPS data and report some key values
-  for (unsigned long start = millis(); millis() - start < 1000;)
+  // For the timeframe we parse GPS data and report some key values
+  int timeframe = 1200;
+  for (unsigned long start = millis(); millis() - start < timeframe;)
   {
     while (ss.available())
     {
       char c = ss.read();
       gps.encode(c);
-      // Serial.write(c); // uncomment this line if you want to see the GPS data flowing
-      //if () // Did a new valid sentence come in?
-      //  Serial.println("");
     }
   }
   float flat, flon;
   unsigned long age;
   gps.f_get_position(&flat, &flon, &age);
+
   /* GPS Code */
+  // Serial Print
   Serial.write("\nGPS DATA INCOMING\n");
   Serial.print("LAT=");
   Serial.print(flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6);
@@ -90,6 +134,8 @@ void get_gps() {
   Serial.print(gps.satellites() == TinyGPS::GPS_INVALID_SATELLITES ? 0 : gps.satellites());
   Serial.print(" PREC=");
   Serial.print(gps.hdop() == TinyGPS::GPS_INVALID_HDOP ? 0 : gps.hdop());
+
+  // OLED Print
   oled.clear();
   oled.setCursor(0, 0);
   oled.print("Lat: ");
@@ -108,18 +154,16 @@ void bmp280() {
   /* BMP280 Code */
   Serial.println("");
 	//start a measurement
-	if (!bmx280.measure())
-	{
-		Serial.println("could not start measurement, is a measurement already running?");
+	if (!bmx280.measure()) {
+		Serial.println("could not start bmp280 measurement");
 		return;
 	}
 	//wait for the measurement to finish
-	do
-	{
+	do {
 		delay(100);
 	} while (!bmx280.hasValue());
 
-  Serial.write("\nBMP280 DATA INCOMING\n");
+  // Temperature/Pressure Conversions
   float tempF = 0;
   float tempC = bmx280.getTemperature();
   float pascals = bmx280.getPressure();
@@ -130,13 +174,17 @@ void bmp280() {
   float psi = hPa * hPaPsiRatio;
   float stdpsi = stdp * hPaPsiRatio;
   tempF = (tempC*1.8)+32;
+
+  // Serial Print
+  Serial.write("\nBMP280 DATA INCOMING\n");
 	Serial.print("Pressure: "); Serial.print(psi); Serial.print(" psi, ");
   Serial.print(hPa); Serial.print(" hPa, Standard: ");
   Serial.print(stdpsi); Serial.print("psi/");
   Serial.print(stdp); Serial.println("hPa"); 
 	Serial.print("Temperature: "); Serial.println(tempF);
-  oled.setCursor(0, 3);
-  oled.print(bars); oled.print("bars | ");
-  oled.print(tempF); oled.print("F");
 
+  // OLED Print
+  oled.setCursor(0, 3);
+  oled.print(tempF); oled.print("F | ");
+  oled.print(bars); oled.print("bars");
 }
