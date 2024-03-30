@@ -81,21 +81,45 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  //get_gps();
-  //bmp280();
+  // Collect and Store Data from Sensors
   String lat = "";
   String lon = "";
-  String sats = "";
-  String prec = "";
+  String sats = "SATS:";
+  String prec = " | PREC:";
   String uv = get_uv();
   String tempressure = bmp280();
   get_gps_vals(lat, lon, sats, prec);
+  sats.concat(prec);
+
+  // Handle button press to cycle through screens
+  if (digitalRead(pagePin) == LOW && millis() - lastButtonPress > 500) { // Debouncing delay
+    currentScreen = (ScreenState)((currentScreen + 1) % SCREEN_COUNT); // Cycle through screens
+    lastButtonPress = millis();
+  }
+  
   oled.clear();
-  oled.setCursor(0, 0);
-  oled.print(uv);
+
+  // Based on the current screen, display relevant data
+  switch (currentScreen) {
+    case SCREEN0:
+      oled.setCursor(0, 0);
+      oled.print(lat);
+      oled.setCursor(0, 1);
+      oled.print(lon);
+      oled.setCursor(0, 2);
+      oled.print(sats);
+      oled.setCursor(0,3);
+      oled.print(tempressure);
+      break;
+    case SCREEN1:
+      oled.print(uv);
+      break;
+    default:
+      break;
+  }
+
   oled.update();
-  delay(1000);
+  delay(100);
 }
 
 String get_uv() {
@@ -144,9 +168,9 @@ void get_gps_vals(String lat, String lon, String sats, String prec) {
   //oled.print(flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6);
   lon.concat(String(flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6));
   //oled.print(flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6);
-  sats.concat(String(gps.satellites() == TinyGPS::GPS_INVALID_SATELLITES ? 0 : gps.satellites());
+  sats.concat(String(gps.satellites() == TinyGPS::GPS_INVALID_SATELLITES ? 0 : gps.satellites()));
   //oled.print(gps.satellites() == TinyGPS::GPS_INVALID_SATELLITES ? 0 : gps.satellites());
-  prec.concat(String(gps.hdop() == TinyGPS::GPS_INVALID_HDOP ? 0 : gps.hdop());
+  prec.concat(String(gps.hdop() == TinyGPS::GPS_INVALID_HDOP ? 0 : gps.hdop()));
   //oled.print(gps.hdop() == TinyGPS::GPS_INVALID_HDOP ? 0 : gps.hdop());
 }
 
