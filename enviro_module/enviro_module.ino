@@ -84,9 +84,16 @@ void loop() {
   // put your main code here, to run repeatedly:
   //get_gps();
   //bmp280();
+  String lat = "";
+  String lon = "";
+  String sats = "";
+  String prec = "";
+  String uv = get_uv();
+  String tempressure = bmp280();
+  get_gps_vals(lat, lon, sats, prec);
   oled.clear();
   oled.setCursor(0, 0);
-  oled.print(get_uv());
+  oled.print(uv);
   oled.update();
   delay(1000);
 }
@@ -106,9 +113,7 @@ String get_uv() {
   return uv_data;
 }
 
-
-
-void get_gps() {
+void get_gps_vals(String lat, String lon, String sats, String prec) {
   // For the timeframe we parse GPS data and report some key values
   int timeframe = 1200;
   for (unsigned long start = millis(); millis() - start < timeframe;)
@@ -135,22 +140,17 @@ void get_gps() {
   Serial.print(" PREC=");
   Serial.print(gps.hdop() == TinyGPS::GPS_INVALID_HDOP ? 0 : gps.hdop());
 
-  // OLED Print
-  oled.clear();
-  oled.setCursor(0, 0);
-  oled.print("Lat: ");
-  oled.print(flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6);
-  oled.setCursor(0, 1);
-  oled.print("Lon:");
-  oled.print(flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6);
-  oled.setCursor(0, 2);
-  oled.print("# SATs:");
-  oled.print(gps.satellites() == TinyGPS::GPS_INVALID_SATELLITES ? 0 : gps.satellites());
-  oled.print(" Prcsn=");
-  oled.print(gps.hdop() == TinyGPS::GPS_INVALID_HDOP ? 0 : gps.hdop());
+  lat.concat(String(flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6));
+  //oled.print(flat == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flat, 6);
+  lon.concat(String(flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6));
+  //oled.print(flon == TinyGPS::GPS_INVALID_F_ANGLE ? 0.0 : flon, 6);
+  sats.concat(String(gps.satellites() == TinyGPS::GPS_INVALID_SATELLITES ? 0 : gps.satellites());
+  //oled.print(gps.satellites() == TinyGPS::GPS_INVALID_SATELLITES ? 0 : gps.satellites());
+  prec.concat(String(gps.hdop() == TinyGPS::GPS_INVALID_HDOP ? 0 : gps.hdop());
+  //oled.print(gps.hdop() == TinyGPS::GPS_INVALID_HDOP ? 0 : gps.hdop());
 }
 
-void bmp280() {
+String bmp280() {
   /* BMP280 Code */
   Serial.println("");
 	//start a measurement
@@ -183,8 +183,12 @@ void bmp280() {
   Serial.print(stdp); Serial.println("hPa"); 
 	Serial.print("Temperature: "); Serial.println(tempF);
 
-  // OLED Print
-  oled.setCursor(0, 3);
-  oled.print(tempF); oled.print("F | ");
-  oled.print(bars); oled.print("bars");
+  String tempressure = "";
+  tempressure.concat(String(tempF));
+  tempressure.concat("F | ");
+  tempressure.concat(String(bars));
+  tempressure.concat("bars");
+  return tempressure;
+  //oled.print(tempF); oled.print("F | ");
+  //oled.print(bars); oled.print("bars");
 }
