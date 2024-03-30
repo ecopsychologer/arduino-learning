@@ -29,7 +29,7 @@ enum ScreenState {
 
 ScreenState currentScreen = SCREEN0;
 unsigned long lastButtonPress = 0;
-const int pagePin = 6;
+const int pagePin = 7;
 
 // UV Sensor
 AnalogUVSensor AUV;
@@ -91,6 +91,10 @@ void loop() {
   get_gps_vals(lat, lon, sats, prec);
   sats.concat(prec);
 
+  if (digitalRead(pagePin) == LOW) {
+    Serial.println("Button Press Detected");
+  }
+
   // Handle button press to cycle through screens
   if (digitalRead(pagePin) == LOW && millis() - lastButtonPress > 500) { // Debouncing delay
     currentScreen = (ScreenState)((currentScreen + 1) % SCREEN_COUNT); // Cycle through screens
@@ -112,6 +116,7 @@ void loop() {
       oled.print(tempressure);
       break;
     case SCREEN1:
+      oled.setCursor(0, 0);
       oled.print(uv);
       break;
     default:
