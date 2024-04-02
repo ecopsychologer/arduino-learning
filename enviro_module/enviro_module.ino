@@ -15,12 +15,13 @@
 #include <TinyGPS.h> // by Mikal Hart
 #include "AnalogUVSensor.h"
 #include <string.h>
+#include <Adafruit_AHTX0.h>
 
 #define I2C_ADDRESS 0x76
 #define GPS_RX 4
 #define GPS_TX 3
 
-// deal with OLED screens
+// OLED Screen Setup
 enum ScreenState {
   SCREEN0, // Lat, Lon, No. Sats, Precision, Temp, Pressure
   SCREEN1,
@@ -30,6 +31,9 @@ enum ScreenState {
 ScreenState currentScreen = SCREEN0;
 unsigned long lastButtonPress = 0;
 const int pagePin = 7;
+
+// Temp/Humidity Sensor
+Adafruit_AHTX0 aht;
 
 // UV Sensor
 AnalogUVSensor AUV;
@@ -58,12 +62,19 @@ void setup() {
   AUV.setPowerPin(5);           //  connect power of sensor to digital pin 5
   AUV.switchOff();              // turn off the sensor for now
 
+  /* AHT10 Temp/Humidity */
+  if (! aht.begin()) {
+    Serial.println("AHT not found. Check wiring.");
+    while (1) delay(10);
+  }
+  Serial.println("AHT10 connected");
+
   /* OLED Code */
   oled.init();
   oled.clear();
   pinMode(pagePin, INPUT_PULLUP);
 
-  /* BMP280 Code */
+  /* BMP280 Code Temp/Pressure */
 	//begin() checks the Interface, reads the sensor ID (to differentiate between BMP280 and BME280)
 	//and reads compensation parameters.
 	if (!bmx280.begin())
@@ -82,12 +93,13 @@ void setup() {
 
 void loop() {
   // Collect and Store Data from Sensors
-  String lat = "";
-  String lon = "";
+  String lat = "LAT:";
+  String lon = "LON:";
   String sats = "SATS:";
   String prec = " | PREC:";
   String uv = get_uv();
   String tempressure = bmp280();
+  String conditions = aht10();
   get_gps_vals(lat, lon, sats, prec);
   sats.concat(prec);
 
@@ -107,17 +119,19 @@ void loop() {
   switch (currentScreen) {
     case SCREEN0:
       oled.setCursor(0, 0);
+      oled.print(conditions);
+      oled.setCursor(0,1);
+      oled.print(tempressure);
+      oled.setCursor(0,2);
+      oled.print(uv);
+      break;
+    case SCREEN1:
+      oled.setCursor(0, 0);
       oled.print(lat);
       oled.setCursor(0, 1);
       oled.print(lon);
       oled.setCursor(0, 2);
       oled.print(sats);
-      oled.setCursor(0,3);
-      oled.print(tempressure);
-      break;
-    case SCREEN1:
-      oled.setCursor(0, 0);
-      oled.print(uv);
       break;
     default:
       break;
@@ -220,4 +234,27 @@ String bmp280() {
   return tempressure;
   //oled.print(tempF); oled.print("F | ");
   //oled.print(bars); oled.print("bars");
+}
+
+String aht10() {
+  sensors_event_t humidity, temp;
+  aht.getEvent(&humidity, &temp);// populate temp and humidity objects with fresh data
+  Serial.print("Temperature: "); 
+  Serial.print(temp.temperature); 
+  Serial.println(" degrees C");
+  Serial.print("Humidity: "); 
+  Serial.print(humidity.relative_humidity); 
+  Serial.println("% rH");
+
+  // Temperature/Pressure Conversions
+  //float tempF = 0;
+  //float tempC = temp.temperature;
+  //float humidity = humidity.relative_humidity();
+  //tempF = (tempC*1.8)+32;    
+
+  String conditions = String(temp.temperature);
+  conditions.concat("C | ");
+  conditions.concat(String(humidity.relative_humidity));
+  conditions.concat("% rH");
+  return conditions;
 }
