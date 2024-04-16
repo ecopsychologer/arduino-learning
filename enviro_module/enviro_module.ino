@@ -17,9 +17,20 @@
 #include <string.h>
 #include <Adafruit_AHTX0.h>
 
+// Definitions
+// bmx280
 #define I2C_ADDRESS 0x76
+// gps
 #define GPS_RX 4
 #define GPS_TX 3
+// moisture sensor
+#define DRY_VAL 1023 // change these on testing, 1023 is air, 60 <= water~=160 <= 280
+#define WET_VAL 160
+#define MOISTURE_PIN A0
+// button
+#define PAGE_PIN 7
+
+int output_value;
 
 // OLED Screen Setup
 enum ScreenState {
@@ -30,22 +41,18 @@ enum ScreenState {
 
 ScreenState currentScreen = SCREEN0;
 unsigned long lastButtonPress = 0;
-const int pagePin = 7;
 
+/* Sensor Declarations */
 // Temp/Humidity Sensor
 Adafruit_AHTX0 aht;
-
 // UV Sensor
 AnalogUVSensor AUV;
-
 // GPS Serial Connection
 TinyGPS gps;
 SoftwareSerial ss(GPS_TX, GPS_RX);
-
 // OLED Setup
 GyverOLED<SSD1306_128x32, OLED_NO_BUFFER> oled;
 bool screen = true;
-
 //create a BMx280I2C object using the I2C interface with I2C Address 0x76
 BMx280I2C bmx280(I2C_ADDRESS);
 
@@ -72,7 +79,7 @@ void setup() {
   /* OLED Code */
   oled.init();
   oled.clear();
-  pinMode(pagePin, INPUT_PULLUP);
+  pinMode(PAGE_PIN, INPUT_PULLUP);
 
   /* BMP280 Code Temp/Pressure */
 	//begin() checks the Interface, reads the sensor ID (to differentiate between BMP280 and BME280)
@@ -100,15 +107,16 @@ void loop() {
   String uv = get_uv();
   String tempressure = bmp280();
   String conditions = aht10();
+  String moisture = moisture();
   get_gps_vals(lat, lon, sats, prec);
   sats.concat(prec);
 
-  if (digitalRead(pagePin) == LOW) {
+  if (digitalRead(PAGE_PIN) == LOW) {
     Serial.println("Button Press Detected");
   }
 
   // Handle button press to cycle through screens
-  if (digitalRead(pagePin) == LOW && millis() - lastButtonPress > 500) { // Debouncing delay
+  if (digitalRead(PAGE_PIN) == LOW && millis() - lastButtonPress > 500) { // Debouncing delay
     currentScreen = (ScreenState)((currentScreen + 1) % SCREEN_COUNT); // Cycle through screens
     lastButtonPress = millis();
   }
@@ -139,6 +147,18 @@ void loop() {
 
   oled.update();
   delay(100);
+}
+
+String moisture() {
+  output_value= analogRead(MOISTURE_PIN);
+  Serial.print("Raw value : ");
+  Serial.print(output_value);
+  Serial.println("/1024");
+  output_value = map(output_value,DRY_VAL,WET_VAL,0,100);
+  Serial.print("Moisture : ");
+  Serial.print(output_value);
+  Serial.println("%");
+  return String(output_value)
 }
 
 String get_uv() {
