@@ -51,7 +51,7 @@ AnalogUVSensor AUV;
 TinyGPS gps;
 SoftwareSerial ss(GPS_TX, GPS_RX);
 // OLED Setup
-GyverOLED<SSD1306_128x32, OLED_NO_BUFFER> oled;
+GyverOLED<SSD1306_128x64, OLED_NO_BUFFER> oled;
 bool screen = true;
 //create a BMx280I2C object using the I2C interface with I2C Address 0x76
 BMx280I2C bmx280(I2C_ADDRESS);
